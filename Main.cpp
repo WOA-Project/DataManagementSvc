@@ -149,6 +149,8 @@ DWORD WINAPI ServiceWorkerThread(LPVOID lpParam)
 		}
 		else
 		{
+			BOOL HasActivated = FALSE;
+
 			for (int i = 0; i < (int)pIfList->dwNumberOfItems; i++) {
 				WWAN_INTERFACE_INFO pIfInfo = pIfList->InterfaceInfo[i];
 				if (StringFromGUID2(pIfInfo.InterfaceGuid, (LPOLESTR)& GuidString, 39))
@@ -157,9 +159,13 @@ DWORD WINAPI ServiceWorkerThread(LPVOID lpParam)
 					{
 						WWAN_DATA_ENABLEMENT de = { WWAN_PROFILE_SET_ALL, 1 };
 						dwResult = WwanSetInterface(hClient, &pIfInfo.InterfaceGuid, WwanIntfOpcodeDataEnablement, sizeof(WWAN_DATA_ENABLEMENT), &de, NULL, NULL, NULL);
+						HasActivated = TRUE;
 					}
 				}
 			}
+
+			if (HasActivated)
+				break;
 		}
 
 		if (pIfList != NULL) {
