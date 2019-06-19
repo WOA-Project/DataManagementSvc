@@ -1,6 +1,12 @@
 #include <string>
 #include "Main.h"
 
+#include "Wwapi.h"
+#include <objbase.h>
+
+// Need to link with Ole32.lib
+#pragma comment(lib, "ole32.lib")
+
 int _tmain(int argc, TCHAR* argv[])
 {
 	SERVICE_TABLE_ENTRY ServiceTable[] =
@@ -118,5 +124,54 @@ VOID WINAPI ServiceCtrlHandler(DWORD CtrlCode)
 
 DWORD WINAPI ServiceWorkerThread(LPVOID lpParam)
 {
+	HANDLE hClient = NULL;
+	DWORD dwMaxClient = 1;
+	DWORD dwCurVersion = 0;
+	DWORD dwResult = 0;
+	int iRet = 0;
+
+	WCHAR GuidString[40] = { 0 };
+
+	PWWAN_INTERFACE_INFO_LIST pIfList = NULL;
+
+	dwResult = WwanOpenHandle(dwMaxClient, NULL, &dwCurVersion, &hClient);
+	if (dwResult != ERROR_SUCCESS)
+	{
+		return 1;
+	}
+
+	while (WaitForSingleObject(g_ServiceStopEvent, 0) != WAIT_OBJECT_0)
+	{
+		dwResult = WwanEnumerateInterfaces(hClient, NULL, &pIfList);
+		if (dwResult != ERROR_SUCCESS)
+		{
+			return 1;
+		}
+		else
+		{
+			for (int i = 0; i < (int)pIfList->dwNumberOfItems; i++) {
+				WWAN_INTERFACE_INFO pIfInfo = pIfList->InterfaceInfo[i];
+				if (StringFromGUID2(pIfInfo.InterfaceGuid, (LPOLESTR)& GuidString, 39))
+				{
+					if (pIfInfo.InterfaceStatus.InterfaceState == WwanInterfaceStateAttached)
+					{
+						WWAN_DATA_ENABLEMENT de = { WWAN_PROFILE_SET_ALL, 1 };
+						dwResult = WwanSetInterface(hClient, &pIfInfo.InterfaceGuid, WwanIntfOpcodeDataEnablement, sizeof(WWAN_DATA_ENABLEMENT), &de, NULL, NULL, NULL);
+					}
+				}
+			}
+		}
+
+		if (pIfList != NULL) {
+			WwanFreeMemory(pIfList);
+			pIfList = NULL;
+		}
+
+		Sleep(5000);
+	}
+
+	if (hClient != NULL)
+		WwanCloseHandle(hClient, NULL);
+
 	return ERROR_SUCCESS;
 }
